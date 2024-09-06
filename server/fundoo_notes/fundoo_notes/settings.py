@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [
@@ -129,3 +130,10 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL='user.Users'
+
+
+# # CSRF Settings
+# CSRF_COOKIE_SECURE = False  # Set to True in production
+# CSRF_COOKIE_HTTPONLY = True
+# CSRF_USE_SESSIONS = False
+# CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
