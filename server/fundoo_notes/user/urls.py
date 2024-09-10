@@ -1,14 +1,8 @@
 from django.urls import path
-# from .views import register_user,login_user
-
-# urlpatterns = [
-#     path("register/",register_user,name="register_user"),
-#     path("login/",login_user,name="login_user")
-# ]
-
-from .views import RegisterUserView, LoginUserView
+from .views import RegisterUserView, LoginUserView ,verify_registered_user
 
 urlpatterns = [
     path('register/', RegisterUserView.as_view(), name='register'),
-    path('login/', LoginUserView.as_view(), name='login')
+    path('login/', LoginUserView.as_view(), name='login'),
+    path('verify/<str:token>',verify_registered_user,name='verify')
 ]
