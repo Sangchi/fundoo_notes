@@ -31,13 +31,14 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'user.apps.UserConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'user.apps.UserConfig',
+    'note.apps.NoteConfig',
      'rest_framework',
      'rest_framework_simplejwt',
 ]
@@ -101,7 +102,7 @@ WSGI_APPLICATION = 'fundoo_notes.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'note',
+        'NAME': 'notedatabase',
         'USER': 'postgres',
         'PASSWORD': 'Pass',
         'HOST': 'localhost',
