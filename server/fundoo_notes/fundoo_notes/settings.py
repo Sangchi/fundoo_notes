@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'user.apps.UserConfig',
     'note.apps.NoteConfig',
+    'label.apps.LabelConfig',
      'rest_framework',
      'rest_framework_simplejwt',
 ]
@@ -156,19 +157,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL='user.Users'
 
-EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
-EMAIL_HOST_USER = 'fcc5dae4f5d7d0'
-EMAIL_HOST_PASSWORD = '654fbb1875c9d1'
-EMAIL_PORT = '2525'
+
+
+from decouple import config
+
+# Email configuration
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', default=25, cast=int)
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
 
 
 from loguru import logger
 import os
-
 # Define your base directory and log directory
-BASE_DIR = Path(__file__).parent
 LOG_DIR = BASE_DIR / 'logs'
 os.makedirs(LOG_DIR, exist_ok=True)
 
