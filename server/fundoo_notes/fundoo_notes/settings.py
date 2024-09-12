@@ -99,17 +99,18 @@ WSGI_APPLICATION = 'fundoo_notes.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+from decouple import config
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'notedatabase',
-        'USER': 'postgres',
-        'PASSWORD': 'Pass',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
-
 
 
 # Password validation
@@ -159,3 +160,32 @@ EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
 EMAIL_HOST_USER = 'fcc5dae4f5d7d0'
 EMAIL_HOST_PASSWORD = '654fbb1875c9d1'
 EMAIL_PORT = '2525'
+
+
+
+
+from loguru import logger
+import os
+
+# Define your base directory and log directory
+BASE_DIR = Path(__file__).parent
+LOG_DIR = BASE_DIR / 'logs'
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Define the settings for Loguru
+LOGURU_SETTINGS = {
+    "handlers": [
+        {
+            "sink": LOG_DIR / "all_logs.log",
+            "level": "TRACE",  # This will capture all log levels from TRACE to CRITICAL
+            "format": "{time} - {level} - {message}",
+            "rotation": "10 MB",
+            "compression": "zip",
+            "serialize": False
+        },
+    ],
+}
+
+# Apply the Loguru settings
+for handler in LOGURU_SETTINGS["handlers"]:
+    logger.add(**handler)
