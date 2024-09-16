@@ -7,9 +7,9 @@ from django.db import DatabaseError, IntegrityError
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from loguru import logger
-
 from .models import Label
 from .serializers import LabelSerializer
+
 
 
 class LabelViewSet(mixins.CreateModelMixin,
