@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'label.apps.LabelConfig',
      'rest_framework',
      'rest_framework_simplejwt',
+     'django_celery_beat',
 ]
 
 
@@ -164,7 +165,7 @@ from decouple import config
 # Email configuration
 EMAIL_HOST = config('EMAIL_HOST')
 EMAIL_PORT = config('EMAIL_PORT', default=25, cast=int)
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS = False
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
@@ -206,3 +207,12 @@ CACHES = {
     }
 }
 
+
+CELERY_BROKER_URL ='redis://127.0.0.1:6379/2'
+CELERY_RESULT_BACKEND ='redis://127.0.0.1:6379/2'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER ='json'
+CELERY_RESULT_SERIALIZER ='json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
