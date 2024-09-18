@@ -9,8 +9,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fundoo_notes.settings')
 app = Celery('fundoo_notes')
 app.conf.update(
     broker_connection_retry_on_startup=True,  # Maintain retry behavior on startup
-    enable_utc=True,                         # Enable UTC for Celery
-    timezone='UTC',                         # Set timezone to UTC
+    enable_utc=False,                         # Enable UTC for Celery
+    timezone='Asia/Kolkata',                         # Set timezone to UTC
 )
 
 
