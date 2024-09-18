@@ -9,6 +9,8 @@ from loguru import logger
 from .models import Notes
 from .serializers import Noteserializers
 from utils.redis_util import RedisUtils  # Import the RedisUtils class
+from .schedule import schedule_reminder
+
 
 class NoteViewSet(viewsets.ModelViewSet):
     """
@@ -31,6 +33,11 @@ class NoteViewSet(viewsets.ModelViewSet):
                 notes = Notes.objects.filter(user=user)
                 serializer = self.get_serializer(notes, many=True)
                 data = serializer.data
+
+                #schedule the task if remainder is set
+                if data.reminder: 
+                    schedule_reminder(data) 
+
                 RedisUtils.save(cache_key, data, timeout=3600)
             else:
                 data = cached_notes
@@ -60,9 +67,16 @@ class NoteViewSet(viewsets.ModelViewSet):
             data['user'] = request.user.id
             serializer = self.get_serializer(data=data)
             if serializer.is_valid():
+                data=serializer.save()
                 self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
+                
+                #schedule the task once note created
+                if data.reminder:
+                    schedule_reminder(data)
+
                 notes=RedisUtils.get(request.user.id)
+
                 if not notes:
                     notes=[serializer.data]
                 else:
@@ -110,7 +124,12 @@ class NoteViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(note, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            data=serializer.save()
+            print(data)
+            
+            #schedule a task if note is updated 
+            if data.reminder:
+                schedule_reminder(data)
 
             cache_key = request.user.id
             cached_notes = RedisUtils.get(cache_key)
