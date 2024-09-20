@@ -12,5 +12,32 @@ class Notes(models.Model):
     reminder = models.DateTimeField(null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
-    def __str__(self) -> str:
+    collaborators = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through='Collaborator',
+        related_name='collaborated_notes'
+    )
+
+    
+
+    def __str__(self):
         return self.title
+    
+
+class Collaborator(models.Model):
+    READ_ONLY = 'read_only'
+    READ_WRITE = 'read_write'
+
+    ACCESS_TYPE_CHOICES = [
+        (READ_ONLY, 'Read Only'),
+        (READ_WRITE, 'Read Write'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    note = models.ForeignKey(Notes, on_delete=models.CASCADE)
+    access_type = models.CharField(max_length=20, choices=ACCESS_TYPE_CHOICES)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.note.title} ({self.access_type})"
+
+   
