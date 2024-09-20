@@ -5,20 +5,21 @@ from .serializers import UserRegistrationSerializer, UserLoginSerializer
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-# from django.core.mail import send_mail
 from rest_framework.reverse import reverse
 from .models import Users
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 import jwt
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes,authentication_classes
 from rest_framework.permissions import AllowAny
-# from django.utils.html import format_html
 from user.tasks import send_verification_email
+from drf_yasg.utils import swagger_auto_schema
 
 
 class RegisterUserView(APIView):
     permission_classes = ()
     authentication_classes = ()
-    
+    @swagger_auto_schema(operation_summary="register user", request_body=UserRegistrationSerializer, responses={200: UserRegistrationSerializer})
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -47,7 +48,8 @@ class LoginUserView(APIView):
 
     permission_classes = ()
     authentication_classes = ()
-
+    
+    @swagger_auto_schema(operation_summary='login user',request_body=UserLoginSerializer,responses={200:UserLoginSerializer})
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -74,7 +76,7 @@ def verify_registered_user(request, token):
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         user = Users.objects.get(id=payload["user_id"])
         if not user.is_verified:
-            user.is_verified = True
+            user.is_verified = not user.is_verified
             user.save()
 
         return Response({

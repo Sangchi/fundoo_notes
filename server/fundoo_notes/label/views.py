@@ -9,6 +9,7 @@ from rest_framework.exceptions import NotFound
 from loguru import logger
 from .models import Label
 from .serializers import LabelSerializer
+from drf_yasg.utils import swagger_auto_schema
 
 
 
@@ -54,7 +55,7 @@ class LabelViewSet(mixins.CreateModelMixin,
             },status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
-
+    @swagger_auto_schema(operation_description='creation of label',request_body=LabelSerializer,responses={200:LabelSerializer,400:'invalid data',500:'internal server error'})
     def create(self, request, *args, **kwargs):
         """
         Creates a new label for the authenticated user.
@@ -113,7 +114,7 @@ class LabelViewSet(mixins.CreateModelMixin,
                 'errors': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
+    # @swagger_auto_schema(operation_description="retrive label",request_body=LabelSerializer,responses={200:LabelSerializer,400:'invalid data',500:'internnal server error'})
     def retrieve(self, request, *args, **kwargs):
         """
         Retrieves a specific label for the authenticated user.
@@ -140,7 +141,7 @@ class LabelViewSet(mixins.CreateModelMixin,
                 'errors': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
+    @swagger_auto_schema(operation_description="update label",request_body=LabelSerializer,responses={200:LabelSerializer,400:'invalid data',500:'internal server error'})
     def update(self, request, *args, **kwargs):
         """
         Updates a specific label for the authenticated user.
@@ -246,7 +247,7 @@ class LabelViewSet(mixins.CreateModelMixin,
                 'errors': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
+    
     def list(self, request, *args, **kwargs):
         """
         Fetches all labels for the authenticated user.
