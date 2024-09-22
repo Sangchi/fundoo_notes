@@ -13,7 +13,8 @@ from utils.redis_util import RedisUtils  # Import the RedisUtils class
 from .schedule import schedule_reminder
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
+from label.models import Label
+from django.db.models import Q
 
 class NoteViewSet(viewsets.ModelViewSet):
     """
@@ -33,7 +34,8 @@ class NoteViewSet(viewsets.ModelViewSet):
             cache_key =user.id
             cached_notes = RedisUtils.get(cache_key)
             if cached_notes is None:
-                notes = Notes.objects.filter(user=user)
+                lookup=Q(user=user)| Q(collaborators=user)
+                notes = Notes.objects.filter(lookup,is_archive=False,is_trash=False)
                 serializer = self.get_serializer(notes, many=True)
                 data = serializer.data
 
@@ -66,6 +68,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                                   'reminder': openapi.Schema(type=openapi.TYPE_STRING)},
                                   required=[ 'title', 'description', 'color', 'reminder']),
                          operation_summary='Create Notes')
+    
     def create(self, request, *args, **kwargs):
         """
         Creates a new note instance for the authenticated user.
@@ -115,6 +118,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+        
     @swagger_auto_schema(request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -140,7 +144,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 "error": "You are neither the owner nor a collaborator."
             }, status=status.HTTP_403_FORBIDDEN)
 
-    
+
         except NotFound:
             logger.warning("Attempted to update a note that does not exist.")
             return Response({
@@ -148,6 +152,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 "status": "failed",
                 "error": "The note you are trying to update does not exist."
             }, status=status.HTTP_404_NOT_FOUND)
+        
 
         serializer = self.get_serializer(note, data=request.data, partial=True)
         if serializer.is_valid():
@@ -183,15 +188,15 @@ class NoteViewSet(viewsets.ModelViewSet):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
     
+    
     @swagger_auto_schema(operation_description='delete note',request_body=Noteserializers,responses={200:Noteserializers,400:'invalid data',500:'internal server error'})
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request,pk=None):
         """
         Deletes a note instance.
         """
         try:
-            instance = self.get_object()
+            instance = self.get_queryset().get(Q(pk=pk) & (Q(user=request.user) | Q(collaborators=request.user)))
             self.perform_destroy(instance)
-
             
             cache_key =request.user.id
             RedisUtils.delete(cache_key)
@@ -236,7 +241,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         Archives a specific note instance.
         """
         try:
-            note = self.get_object()
+            note = self.get_queryset().filter(Q(pk=pk) & (Q(user=request.user) | Q(collaborators=request.user))).first()
             note.is_archive = not note.is_archive
             note.save()
             serializer = self.get_serializer(note)
@@ -328,7 +333,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         Trashes a specific note instance.
         """
         try:
-            serializer= self.get_object()
+            serializer= self.get_queryset().filter(Q(pk=pk) & (Q(user=request.user) | Q(collaborators=request.user))).first()
             serializer.is_trash = not serializer.is_trash
             serializer.save()
 
@@ -404,6 +409,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+
 
     @swagger_auto_schema(
         operation_description="Add collaborators to a note",
@@ -498,6 +504,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 {'message': 'An unexpected error occurred', 'status': 'error', 'errors': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
 
     @swagger_auto_schema(
         operation_description="Remove collaborators from a note",
@@ -557,6 +564,118 @@ class NoteViewSet(viewsets.ModelViewSet):
             )
         except Exception as e:
             logger.error(f"Unexpected error while removing collaborators: {e}")
+            return Response(
+                {'message': 'An unexpected error occurred', 'status': 'error', 'errors': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        
+    
+    @swagger_auto_schema(
+        method='post',
+        operation_description="add labels from a note",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'note_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'label_ids': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_INTEGER))
+            }
+        ),
+        responses={
+            200: "Labels removed successfully",
+            400: "Bad Request: Invalid input data.",
+            404: "Not Found: Note or labels not found.",
+            500: "Internal Server Error: An error occurred during removing labels."
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def add_labels(self, request):
+        """
+        desc: Adds labels to a specific note.
+        params: request (Request): The HTTP request object with note ID and list of label IDs.
+        return: Response: Success message or error message.
+        """
+
+        note_id = request.data.get('note_id')
+        label_ids = request.data.get('label_ids', [])
+
+        if not isinstance(label_ids, list):
+            return Response(
+                {'message': 'Invalid input data', 'status': 'error'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            note = Notes.objects.get(pk=note_id, user=request.user)
+            labels = Label.objects.filter(id__in=label_ids)
+            note.labels.add(*labels)
+            return Response(
+                {'message': 'Labels added successfully', 'status': 'success'},
+                status=status.HTTP_200_OK
+            )
+
+        except Notes.DoesNotExist:
+            return Response(
+                {'message': 'Note not found', 'status': 'error', 'errors': 'The requested note does not exist.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error while adding labels: {e}")
+            return Response(
+                {'message': 'An unexpected error occurred', 'status': 'error', 'errors': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+    @swagger_auto_schema(
+        method='post',
+        operation_description="Remove labels from a note",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'note_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'label_ids': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_INTEGER))
+            }
+        ),
+        responses={
+            200: "Labels removed successfully",
+            400: "Bad Request: Invalid input data.",
+            404: "Not Found: Note or labels not found.",
+            500: "Internal Server Error: An error occurred during removing labels."
+        }
+    )
+    @action(detail=False, methods=['post'])
+    def remove_labels(self, request):
+        """
+        desc: Removes labels from a specific note.
+        params: request (Request): The HTTP request object with note ID and list of label IDs.
+        return: Response: Success message or error message.
+        """
+        note_id = request.data.get('note_id')
+        label_ids = request.data.get('label_ids', [])
+
+        if not note_id or not isinstance(label_ids, list):
+            return Response(
+                {'message': 'Invalid input data', 'status': 'error'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            note = Notes.objects.get(pk=note_id, user=request.user)
+            labels = Label.objects.filter(id__in=label_ids)
+            note.labels.remove(*labels)
+            return Response(
+                {'message': 'Labels removed successfully', 'status': 'success'},
+                status=status.HTTP_200_OK
+            )
+
+        except Notes.DoesNotExist:
+            return Response(
+                {'message': 'Note not found', 'status': 'error', 'errors': 'The requested note does not exist.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error while removing labels: {e}")
             return Response(
                 {'message': 'An unexpected error occurred', 'status': 'error', 'errors': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
