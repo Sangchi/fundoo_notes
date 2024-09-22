@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from label.models import Label
 
 
 class Notes(models.Model):
@@ -17,6 +18,8 @@ class Notes(models.Model):
         through='Collaborator',
         related_name='collaborated_notes'
     )
+
+    labels = models.ManyToManyField(Label, related_name='notes', blank=True)
 
     
 
