@@ -15,6 +15,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from label.models import Label
 from django.db.models import Q
+import json
 
 class NoteViewSet(viewsets.ModelViewSet):
     """
@@ -27,6 +28,8 @@ class NoteViewSet(viewsets.ModelViewSet):
     serializer_class = Noteserializers
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+
+    
     
     def list(self, request, *args, **kwargs):
         try:
@@ -167,7 +170,7 @@ class NoteViewSet(viewsets.ModelViewSet):
             cached_notes = RedisUtils.get(cache_key)
         
             if cached_notes:
-                cached_notes_dict = {note['id']: note for note in cached_notes}
+                cached_notes_dict = {note.id: n for n in cached_notes}
                 updated_note_data = serializer.data
                 cached_notes_dict[updated_note_data['id']] = updated_note_data
 
@@ -241,7 +244,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         Archives a specific note instance.
         """
         try:
-            note = self.get_queryset().filter(Q(pk=pk) & (Q(user=request.user) | Q(collaborators=request.user))).first()
+            note = self.get_object()
             note.is_archive = not note.is_archive
             note.save()
             serializer = self.get_serializer(note)
@@ -285,21 +288,26 @@ class NoteViewSet(viewsets.ModelViewSet):
         """
         Retrieves all archived notes.
         """
+        
         try:
-            cache_key = request.user.id
-            archived_notes = RedisUtils.get(cache_key)
+            archived_notes = self.get_queryset().filter(is_archive=True, is_trash=False)
+            serializer = self.get_serializer(archived_notes, many=True)
+            archived_notes_data = serializer.data
 
-            if archived_notes is None:
-                archived_notes = self.get_queryset().filter(is_archive=True, is_trash=False)
-                serializer = self.get_serializer(archived_notes, many=True)
-                archived_notes = serializer.data
-                RedisUtils.save(cache_key, archived_notes, timeout=3600)
+            if archived_notes_data is None:
+                logger.warning("No archived notes found.")
+                return Response({
+                "message": "No archived notes found.",
+                "status": "success",
+                "data": []  # Return an empty list instead of null
+                       })
+
 
             logger.info("Archived notes retrieved successfully.")
             return Response({
                 "message": "Archived notes retrieved successfully.",
                 "status": "success",
-                "data": archived_notes
+                "data": archived_notes_data
             })
         
         except NotFound as e:
@@ -318,6 +326,7 @@ class NoteViewSet(viewsets.ModelViewSet):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+        
     @swagger_auto_schema(request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -333,7 +342,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         Trashes a specific note instance.
         """
         try:
-            serializer= self.get_queryset().filter(Q(pk=pk) & (Q(user=request.user) | Q(collaborators=request.user))).first()
+            serializer = self.get_object()
             serializer.is_trash = not serializer.is_trash
             serializer.save()
 
@@ -376,22 +385,24 @@ class NoteViewSet(viewsets.ModelViewSet):
         Retrieves all trashed notes.
         """
         try:
-            cache_key = request.user.id
-            trashed_notes = RedisUtils.get(cache_key)
-
+            trashed_notes = self.get_queryset().filter(is_trash=True)
+            serializer = self.get_serializer(trashed_notes, many=True)
+            trashed_notes_data = serializer.data
+                
             if trashed_notes is None:
-                trashed_notes = self.get_queryset().filter(is_trash=True)
-                serializer = self.get_serializer(trashed_notes, many=True)
-                trashed_notes = serializer.data
-                RedisUtils.save(cache_key, trashed_notes, timeout=3600)  # Cache for 1 hour
-            else:
-                trashed_notes=trashed_notes
+                logger.warning("No trashed notes found.")
+                return Response({
+                   "message": "No archived notes found.",
+                   "status": "success",
+                   "data": []  
+                       })
+                 
             logger.info("Trashed notes retrieved successfully from cache .")
             return Response({
                 "message": "Trashed notes retrieved successfully.",
                 "status": "success",
-                "data": trashed_notes
-            })
+                "data": trashed_notes_data
+              })
         
         except NotFound as e:
             logger.warning(f"Attempted to retrieve trashed notes but none were found: {e}.")
