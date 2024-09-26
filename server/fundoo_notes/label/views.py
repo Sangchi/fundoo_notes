@@ -67,8 +67,16 @@ class LabelViewSet(mixins.CreateModelMixin,
         try:
             data = request.data.copy()
             data['user'] = request.user.id
+            if isinstance(data.get('name'), int):
+                logger.error("Name field cannot be an integer.")
+                return Response({
+                'message': 'Validation error',
+                'status': 'error',
+                'errors': {'name': ['The name field cannot be an integer.']}
+            }, status=status.HTTP_400_BAD_REQUEST)
 
             logger.info(f"Creating label with data: {data}")
+
             
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
@@ -96,14 +104,6 @@ class LabelViewSet(mixins.CreateModelMixin,
                 'status': 'error',
                 'errors': 'A required field is missing or contains invalid data. Please ensure all required fields are correctly filled.'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        except DatabaseError as e:
-            logger.error(f"Database error during label creation: {e}")
-            return Response({
-                'message': 'Database error',
-                'status': 'error',
-                'errors': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         except Exception as e:
 
@@ -179,7 +179,7 @@ class LabelViewSet(mixins.CreateModelMixin,
             return Response({
                 'message': 'Validation error',
                 'status': 'error',
-                'errors': e.detail  # type: ignore
+                'errors': e.detail 
             }, status=status.HTTP_400_BAD_REQUEST)
         except IntegrityError as e:
             logger.error(f"Integrity error during label update: {e}")
@@ -188,6 +188,14 @@ class LabelViewSet(mixins.CreateModelMixin,
                 'status': 'error',
                 'errors': 'A required field is missing or contains invalid data. Please ensure all required fields are correctly filled.'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        except ValidationError as e:
+            logger.error(f"Validation error during label update: {e}")
+            return Response({
+            'message': 'Validation error',
+            'status': 'error',
+            'errors': e.detail 
+        }, status=status.HTTP_400_BAD_REQUEST)
         
         except DatabaseError as e:
             logger.error(f"Database error during label update: {e}")
