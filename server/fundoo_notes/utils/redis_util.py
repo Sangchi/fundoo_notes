@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Type, Union
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
 from loguru import logger
-
+import json
 class RedisUtils:
     """
     Utility class to interact with Redis cache.
@@ -55,4 +55,23 @@ class RedisUtils:
         except Exception as e:
             logger.error(f"Error deleting from cache: {str(e)}")
             raise ValidationError(f"Error deleting from cache: {str(e)}")
+        
+    @staticmethod
+    def deserialize(value: Any) -> Any:
+        """
+        Deserialize JSON string back into Python objects.
+        
+        Parameters:
+            value (Any): The cached value (JSON string or None).
+        
+        Returns:
+            Any: The deserialized Python object or None if the input was None.
+        """
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error deserializing cached value: {str(e)}")
+            raise ValidationError(f"Error deserializing cached value: {str(e)}")
 
