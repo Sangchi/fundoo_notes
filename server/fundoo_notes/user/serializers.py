@@ -62,17 +62,6 @@ class UserLoginSerializer(serializers.Serializer):
         if user is None:
             raise serializers.ValidationError('Invalid email or password')
 
-        # Generate JWT tokens
-        # token = RefreshToken.for_user(user)
-        # return {
-        #     'data': {
-        #         'id': user.id,  
-        #         'username': user.username,
-        #         'email': user.email,
-        #     },
-        #     'access': str(token.access_token),
-        #     'refresh': str(token)
-        # }
         data['user'] = user
         return data
     
