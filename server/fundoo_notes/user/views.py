@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 from rest_framework.reverse import reverse
+from datetime import datetime, timedelta, timezone
 from .models import Users
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -24,9 +25,15 @@ class RegisterUserView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-    
-            token = RefreshToken.for_user(user).access_token
+
+            payload = {
+                  'user_id': user.id,
+                  'exp': datetime.now(tz=timezone.utc)+ timedelta(hours=24),
+                  'iat': datetime.now(tz=timezone.utc)
+                }
+            token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
             link = request.build_absolute_uri(reverse('verify', args=[token]))
+
             # send verification link asynchronously
 
             send_verification_email.delay(user.email, link)
@@ -53,13 +60,16 @@ class LoginUserView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
-         
+            user=serializer.validated_data['user']
+            
+            refresh = RefreshToken.for_user(user)
             return Response({
-                'message': 'User login successful',
-                'status': 'success',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
-
+                    "message": "User logged in successfully",
+                    "status": "success",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }, status=status.HTTP_200_OK)
+        
         return Response({
             'message': 'Invalid data',
             'status': 'error',
@@ -70,19 +80,20 @@ class LoginUserView(APIView):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def verify_registered_user(request, token):
-    
-
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        user = Users.objects.get(id=payload["user_id"])
-        if not user.is_verified:
-            user.is_verified = not user.is_verified
-            user.save()
-
+       
+        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        print(token)
+        user = Users.objects.get(id=decoded_token['user_id'])
+        user.is_verified = True
+        user.save()
+        
+       
         return Response({
-            'message': 'Email verified successfully',
-            'status': 'success'
-            }, status=status.HTTP_200_OK)
+            "message": "Token is valid",
+            "status": "success",
+            "data": decoded_token,
+        },status=status.HTTP_202_ACCEPTED)
 
     except jwt.ExpiredSignatureError:
         return Response({
