@@ -131,3 +131,43 @@ def verify_registered_user(request, token):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+def register_view(request):
+    if request.method == 'POST':
+        serializer = UserRegistrationSerializer(data=request.POST)
+        if serializer.is_valid():
+            user = serializer.save()
+            messages.success(request, "Registration successful. You can now log in.")
+            return redirect('login')  # Redirect to login page
+        else:
+            messages.error(request, "Registration failed. Please try again.")
+    
+    return render(request, 'registration.html')
+
+
+def login_view(request):
+    if request.method == 'POST':
+        email = request.POST['email']
+        password = request.POST['password']
+        user = authenticate(request, username=email, password=password)
+        
+        if user is not None:
+            login(request, user)
+            return redirect('index')  
+        else:
+            messages.error(request, "Invalid email or password.")
+    
+    return render(request, 'login.html')
+
+
+def home_view(request):
+    if request.user.is_authenticated:
+        users = Users.objects.all()  
+        return render(request, 'index.html', {'users': users})
+    else:
+        return redirect('login')  
+    
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')
