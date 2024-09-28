@@ -10,5 +10,5 @@ urlpatterns = [
 
     path('register/', RegisterUserView.as_view(), name='register'),
     path('login/', LoginUserView.as_view(), name='login'),
-    path('verify/<token>',verify_registered_user,name='verify')
+    path('verify/<token>/',verify_registered_user,name='verify')
 ]
