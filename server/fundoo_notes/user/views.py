@@ -15,11 +15,17 @@ from rest_framework.decorators import api_view, permission_classes,authenticatio
 from rest_framework.permissions import AllowAny
 from user.tasks import send_verification_email
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.throttling import UserRateThrottle ,  AnonRateThrottle
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from django.contrib.auth import authenticate, login
+from django.contrib.auth import logout
 
 
 class RegisterUserView(APIView):
     permission_classes = ()
     authentication_classes = ()
+    throttle_classes = [AnonRateThrottle]
     @swagger_auto_schema(operation_summary="register user", request_body=UserRegistrationSerializer, responses={200: UserRegistrationSerializer})
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
@@ -56,6 +62,8 @@ class LoginUserView(APIView):
     permission_classes = ()
     authentication_classes = ()
     
+    throttle_classes = [UserRateThrottle]
+    
     @swagger_auto_schema(operation_summary='login user',request_body=UserLoginSerializer,responses={200:UserLoginSerializer})
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
@@ -75,6 +83,8 @@ class LoginUserView(APIView):
             'status': 'error',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+    
+
 
 
 @api_view(['GET'])
@@ -119,3 +129,5 @@ def verify_registered_user(request, token):
             'status': 'error',
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
