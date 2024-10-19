@@ -132,65 +132,61 @@ class NoteViewSet(viewsets.ModelViewSet):
                          required=[ 'title', 'description', 'color', 'reminder']),
                          operation_summary='Update Notes')
     def update(self, request, pk=None):
-        """
-        Update an existing note for the user.
-        """
         try:
-
             note = Notes.objects.get(pk=pk)
-            collabrator=Collaborator.objects.filter(note=note, user=request.user)
+            collabrator = Collaborator.objects.filter(note=note, user=request.user)
             if note.user != request.user and not collabrator.exists():
-                
                 return Response({
                 "message": "You do not have permission to update this note.",
                 "status": "failed",
                 "error": "You are neither the owner nor a collaborator."
             }, status=status.HTTP_403_FORBIDDEN)
 
-
-        except NotFound:
+        except Notes.DoesNotExist:
             logger.warning("Attempted to update a note that does not exist.")
             return Response({
-                "message": "Note not found.",
-                "status": "failed",
-                "error": "The note you are trying to update does not exist."
-            }, status=status.HTTP_404_NOT_FOUND)
-        
+            "message": "Note not found.",
+            "status": "failed",
+            "error": "The note you are trying to update does not exist."
+        }, status=status.HTTP_404_NOT_FOUND)
 
+    
         serializer = self.get_serializer(note, data=request.data, partial=True)
         if serializer.is_valid():
-            data=serializer.save()
-            print(data)
-            
-            #schedule a task if note is updated 
-            if data.reminder:
-                schedule_reminder(data)
+            updated_note = serializer.save()
+            # Schedule a task if reminder is set
+            if updated_note.reminder:
+                schedule_reminder(updated_note)
 
             cache_key = request.user.id
             cached_notes = RedisUtils.get(cache_key)
         
             if cached_notes:
-                cached_notes_dict = {note.id: n for n in cached_notes}
-                updated_note_data = serializer.data
-                cached_notes_dict[updated_note_data['id']] = updated_note_data
-
-                updated_cached_notes = list(cached_notes_dict.values())
+                updated_cached_notes = []
+                for cached_note in cached_notes:
+                    if cached_note['id'] == updated_note.id:
+                        updated_cached_notes.append(serializer.data)  # Replace with updated data
+                    else:
+                        updated_cached_notes.append(cached_note)  # Retain existing notes
+            
+                # Save updated cache
                 RedisUtils.save(cache_key, updated_cached_notes)
 
             logger.info("Note successfully updated.")
             return Response({
-                'message': 'Successfully updated',
-                'status': 'success',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            'message': 'Successfully updated',
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
 
         logger.warning(f"Validation error during note update: {serializer.errors}")
         return Response({
-            'message': 'Validation error',
-            'status': 'error',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        'message': 'Validation error',
+        'status': 'error',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
     
+
     
     @swagger_auto_schema(operation_description='delete note',request_body=Noteserializers,responses={200:Noteserializers,400:'invalid data',500:'internal server error'})
     def destroy(self, request,pk=None):
